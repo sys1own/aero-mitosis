@@ -169,11 +169,7 @@ impl Drop for SignalSupervisor {
 }
 
 #[cfg(unix)]
-unsafe extern "C" fn crash_handler(
-    signum: i32,
-    info: *mut libc::siginfo_t,
-    _context: *mut c_void,
-) {
+unsafe extern "C" fn crash_handler(signum: i32, info: *mut libc::siginfo_t, _context: *mut c_void) {
     // Capturing a full backtrace inside a signal handler is not strictly
     // async-signal-safe, but it is attempted for fatal crashes. In non-fatal
     // test mode the backtrace is left empty so the handler can return cleanly.

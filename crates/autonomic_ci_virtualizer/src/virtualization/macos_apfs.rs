@@ -16,11 +16,7 @@ pub const CLONE_NOOWNERCOPY: u32 = 0x0002;
 
 extern "C" {
     /// macOS `clonefile(2)` creates a copy-on-write clone of `src` at `dst`.
-    fn clonefile(
-        src: *const libc::c_char,
-        dst: *const libc::c_char,
-        flags: u32,
-    ) -> libc::c_int;
+    fn clonefile(src: *const libc::c_char, dst: *const libc::c_char, flags: u32) -> libc::c_int;
 }
 
 /// Clone a single file from `src` to `dst` using APFS copy-on-write extents.

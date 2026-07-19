@@ -67,19 +67,14 @@ impl WavefrontScheduler {
             }
         }
 
-        order
-            .iter()
-            .filter_map(|&id| units.remove(&id))
-            .collect()
+        order.iter().filter_map(|&id| units.remove(&id)).collect()
     }
 
     /// Compute dependency-aware wavefront bands. Each band contains units whose
     /// remaining dependencies have all been satisfied by previous bands.
     fn bands(units: &[CompilationUnit]) -> Vec<Vec<CompilationUnit>> {
-        let mut remaining: HashMap<usize, usize> = units
-            .iter()
-            .map(|u| (u.id, u.dependencies.len()))
-            .collect();
+        let mut remaining: HashMap<usize, usize> =
+            units.iter().map(|u| (u.id, u.dependencies.len())).collect();
 
         let by_id: HashMap<usize, &CompilationUnit> = units.iter().map(|u| (u.id, u)).collect();
         let mut dependents: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -121,11 +116,7 @@ impl WavefrontScheduler {
     ///
     /// Returns a vector of `(node_id, result)` pairs ordered by the graph's
     /// topological order.
-    pub fn run<R, F>(
-        &self,
-        graph: &StructuralCausalGraph,
-        work: F,
-    ) -> Vec<(usize, R)>
+    pub fn run<R, F>(&self, graph: &StructuralCausalGraph, work: F) -> Vec<(usize, R)>
     where
         R: Send + 'static,
         F: Fn(&CompilationUnit) -> R + Send + Sync + 'static,
@@ -135,11 +126,7 @@ impl WavefrontScheduler {
     }
 
     /// Run `work` over a list of compilation units grouped into wavefront bands.
-    pub fn run_units<R, F>(
-        &self,
-        units: &[CompilationUnit],
-        work: F,
-    ) -> Vec<(usize, R)>
+    pub fn run_units<R, F>(&self, units: &[CompilationUnit], work: F) -> Vec<(usize, R)>
     where
         R: Send + 'static,
         F: Fn(&CompilationUnit) -> R + Send + Sync + 'static,
@@ -221,9 +208,13 @@ mod tests {
             .map(|(id, _)| id)
             .collect();
 
-        assert!(order.iter().position(|&id| id == c).unwrap()
-            > order.iter().position(|&id| id == a).unwrap());
-        assert!(order.iter().position(|&id| id == c).unwrap()
-            > order.iter().position(|&id| id == b).unwrap());
+        assert!(
+            order.iter().position(|&id| id == c).unwrap()
+                > order.iter().position(|&id| id == a).unwrap()
+        );
+        assert!(
+            order.iter().position(|&id| id == c).unwrap()
+                > order.iter().position(|&id| id == b).unwrap()
+        );
     }
 }

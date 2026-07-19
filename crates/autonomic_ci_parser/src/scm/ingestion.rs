@@ -88,7 +88,13 @@ impl StructuralCausalGraph {
 
     /// Ensure a node with `name` exists. If it does not, create an external
     /// placeholder node.
-    pub fn ensure_node(&mut self, name: &str, node_type: NodeType, language: &str, path: &Path) -> usize {
+    pub fn ensure_node(
+        &mut self,
+        name: &str,
+        node_type: NodeType,
+        language: &str,
+        path: &Path,
+    ) -> usize {
         if let Some(&id) = self.by_name.get(name) {
             return id;
         }
@@ -234,12 +240,8 @@ impl IngestionEngine {
 
                 if let Some((package_name, language, deps)) = manifest {
                     let dir = path.parent().unwrap_or(root);
-                    let node_id = graph.ensure_node(
-                        &package_name,
-                        NodeType::Package,
-                        &language,
-                        dir,
-                    );
+                    let node_id =
+                        graph.ensure_node(&package_name, NodeType::Package, &language, dir);
                     // Update the existing node (which may have been a placeholder)
                     // with the real path and language.
                     if let Some(node) = graph.nodes.get_mut(node_id) {
@@ -320,11 +322,7 @@ impl IngestionEngine {
                 continue;
             }
             if trimmed.starts_with("module ") {
-                name = trimmed
-                    .split_whitespace()
-                    .nth(1)
-                    .unwrap_or("")
-                    .to_string();
+                name = trimmed.split_whitespace().nth(1).unwrap_or("").to_string();
             } else if trimmed.starts_with("require (") {
                 in_require = true;
             } else if trimmed == ")" {
@@ -465,13 +463,7 @@ impl IngestionEngine {
 fn parse_pkg_name(spec: &str) -> String {
     let spec = spec.split(';').next().unwrap_or(spec).trim();
     for (i, c) in spec.char_indices() {
-        if c.is_whitespace()
-            || c == '='
-            || c == '<'
-            || c == '>'
-            || c == '!'
-            || c == '~'
-            || c == '['
+        if c.is_whitespace() || c == '=' || c == '<' || c == '>' || c == '!' || c == '~' || c == '['
         {
             return spec[..i].trim().to_string();
         }
@@ -529,7 +521,9 @@ dependencies = ["requests>=2.28"]
         let demo = graph.node_by_name("demo").unwrap();
         let serde_node = graph.node_by_name("serde").unwrap();
         let has_serde_edge = graph.edges.iter().any(|e| {
-            e.from == demo.id && e.to == serde_node.id && e.dependency_type == DependencyType::Compile
+            e.from == demo.id
+                && e.to == serde_node.id
+                && e.dependency_type == DependencyType::Compile
         });
         assert!(has_serde_edge);
 

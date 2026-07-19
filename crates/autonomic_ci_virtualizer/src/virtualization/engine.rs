@@ -49,9 +49,10 @@ impl WorkspaceVirtualizer for DefaultVirtualizer {
         #[cfg(windows)]
         {
             let config = config.clone();
-            let result = task::spawn_blocking(move || super::windows_fallback::mount_with_projfs(&config))
-                .await
-                .map_err(|e| VirtualizerError::SystemFault(e.to_string()))?;
+            let result =
+                task::spawn_blocking(move || super::windows_fallback::mount_with_projfs(&config))
+                    .await
+                    .map_err(|e| VirtualizerError::SystemFault(e.to_string()))?;
             match result {
                 Ok(()) => return Ok(()),
                 Err(VirtualizerError::AccessDenied) => {}
@@ -160,7 +161,12 @@ impl CowEngine {
 
     pub(crate) fn commit(config: &VirtualEnvConfig) -> Result<CommitReport, VirtualizerError> {
         let mut report = CommitReport::default();
-        Self::apply_upper_to_lower_and_merged(config, &config.upper_dir, &config.merged_dir, &mut report)?;
+        Self::apply_upper_to_lower_and_merged(
+            config,
+            &config.upper_dir,
+            &config.merged_dir,
+            &mut report,
+        )?;
 
         if config.upper_dir.exists() {
             fs::remove_dir_all(&config.upper_dir)?;
@@ -363,7 +369,10 @@ mod tests {
         );
 
         let report = CowEngine::commit(&config).unwrap();
-        assert!(report.files_written.iter().any(|p| p == Path::new("foo.txt")));
+        assert!(report
+            .files_written
+            .iter()
+            .any(|p| p == Path::new("foo.txt")));
         assert!(report.bytes_mutated > 0);
 
         assert_eq!(

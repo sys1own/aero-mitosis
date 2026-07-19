@@ -23,7 +23,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use autonomic_ci_parser::ast::matrix_mapper::FeatureVector;
 use autonomic_ci_parser::scm::ingestion::StructuralCausalGraph;
-use autonomic_ci_virtualizer::virtualization::{DefaultVirtualizer, VirtualEnvConfig, VirtualizerError, WorkspaceVirtualizer};
+use autonomic_ci_virtualizer::virtualization::{
+    DefaultVirtualizer, VirtualEnvConfig, VirtualizerError, WorkspaceVirtualizer,
+};
 use tokio::task;
 use tokio::time::sleep;
 
@@ -188,13 +190,18 @@ impl SelfHealingRouter {
             return Err(RouterError::NoCandidates);
         }
 
-        let root_cause = diagnostic.root_cause_node
+        let root_cause = diagnostic
+            .root_cause_node
             .and_then(|id| graph.nodes.get(id))
             .map(|n| n.name.clone())
             .unwrap_or_else(|| "unknown".into());
 
         let mut last_report = None;
-        for (attempt, patch) in candidates.into_iter().take(self.config.max_retries).enumerate() {
+        for (attempt, patch) in candidates
+            .into_iter()
+            .take(self.config.max_retries)
+            .enumerate()
+        {
             let env = make_env(baseline_root, attempt)?;
             self.virtualizer.initialize(&env).await?;
             self.virtualizer.mount(&env).await?;
@@ -204,7 +211,8 @@ impl SelfHealingRouter {
 
             let merged = env.merged_dir.clone();
             let v = Arc::clone(&validator);
-            let validation = task::spawn_blocking(move || v.validate(&merged)).await
+            let validation = task::spawn_blocking(move || v.validate(&merged))
+                .await
                 .map_err(|e| RouterError::Message(e.to_string()))?;
 
             let penalty = compute_penalty(&validation, baseline, &self.config.weights);

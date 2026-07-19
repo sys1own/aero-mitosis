@@ -37,9 +37,11 @@ pub const PYTHON: LanguageQueries = LanguageQueries {
 /// Go query bundle.
 pub const GO: LanguageQueries = LanguageQueries {
     language_name: "go",
-    namespace: "(package_clause) @package\n(import_spec) @import\n(import_declaration) @import_decl",
+    namespace:
+        "(package_clause) @package\n(import_spec) @import\n(import_declaration) @import_decl",
     structural: "(type_spec) @type\n(struct_type) @struct\n(interface_type) @interface",
-    functional: "(function_declaration) @function\n(method_declaration) @method\n(func_literal) @func_lit",
+    functional:
+        "(function_declaration) @function\n(method_declaration) @method\n(func_literal) @func_lit",
 };
 
 /// Return the query bundle for a language name, or `None` if unsupported.

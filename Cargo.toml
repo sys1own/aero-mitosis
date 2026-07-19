@@ -10,7 +10,7 @@ members = [
 name = "aero-mitosis"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <you@example.com>"]
+authors = ["sys1own <sys1own@users.noreply.github.com>"]
 description = "An autonomic, self-healing CI build orchestration engine written in Rust."
 license = "MIT"
 repository = "https://github.com/sys1own/aero-mitosis"
@@ -23,6 +23,7 @@ name = "aero-mitosis"
 path = "src/main.rs"
 
 [dependencies]
-autonomic_ci_core = { path = "crates/autonomic_ci_core", version = "0.1.0" }
-# We include tokio at the root so the CLI entrypoint can boot up Devin's async runtime safely
 tokio = { version = "1.38", features = ["full"] }
+
+[dev-dependencies]
+autonomic_ci_core = { path = "crates/autonomic_ci_core" }
