@@ -5,3 +5,24 @@ members = [
     "crates/autonomic_ci_parser",
     "crates/autonomic_ci_core",
 ]
+
+[package]
+name = "aero-mitosis"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "An autonomic, self-healing CI build orchestration engine written in Rust."
+license = "MIT"
+repository = "https://github.com/sys1own/aero-mitosis"
+readme = "README.md"
+categories = ["development-tools::build-tools", "command-line-utilities"]
+keywords = ["ci", "self-healing", "orchestrator", "automation"]
+
+[[bin]]
+name = "aero-mitosis"
+path = "src/main.rs"
+
+[dependencies]
+autonomic_ci_core = { path = "crates/autonomic_ci_core", version = "0.1.0" }
+# We include tokio at the root so the CLI entrypoint can boot up Devin's async runtime safely
+tokio = { version = "1.38", features = ["full"] }
