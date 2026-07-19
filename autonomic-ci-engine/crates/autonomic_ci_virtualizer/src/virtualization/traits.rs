@@ -19,10 +19,11 @@ pub struct CommitReport {
     pub bytes_mutated: u64,
 }
 
-/// Error type representing I/O failures and low-level system faults.
+/// Error type representing I/O failures, access denials, and low-level system faults.
 #[derive(Debug)]
 pub enum VirtualizerError {
     Io(io::Error),
+    AccessDenied,
     SystemFault(String),
 }
 
@@ -30,6 +31,7 @@ impl fmt::Display for VirtualizerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             VirtualizerError::Io(e) => write!(f, "virtualizer I/O error: {e}"),
+            VirtualizerError::AccessDenied => write!(f, "virtualizer access denied"),
             VirtualizerError::SystemFault(msg) => write!(f, "virtualizer system fault: {msg}"),
         }
     }
@@ -39,7 +41,7 @@ impl Error for VirtualizerError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             VirtualizerError::Io(e) => Some(e),
-            VirtualizerError::SystemFault(_) => None,
+            VirtualizerError::AccessDenied | VirtualizerError::SystemFault(_) => None,
         }
     }
 }
