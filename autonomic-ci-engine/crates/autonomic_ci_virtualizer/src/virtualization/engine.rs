@@ -43,6 +43,9 @@ impl WorkspaceVirtualizer for DefaultVirtualizer {
     }
 
     async fn mount(&self, config: &VirtualEnvConfig) -> Result<(), VirtualizerError> {
+        #[cfg(target_os = "macos")]
+        let upper_dir = config.upper_dir.clone();
+
         #[cfg(windows)]
         {
             let config = config.clone();
@@ -63,8 +66,7 @@ impl WorkspaceVirtualizer for DefaultVirtualizer {
 
         #[cfg(target_os = "macos")]
         {
-            let (handle, rx) =
-                super::macos_fsevents::WatcherHandle::start(&config.upper_dir)?;
+            let (handle, rx) = super::macos_fsevents::WatcherHandle::start(&upper_dir)?;
             *self.watcher.lock().unwrap() = Some(handle);
             *self.rx.lock().unwrap() = Some(rx);
         }
