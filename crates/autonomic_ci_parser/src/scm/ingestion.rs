@@ -221,7 +221,18 @@ impl IngestionEngine {
                 }
                 Self::discover_dir(&path, graph, root)?;
             } else if file_type.is_file() {
-                if let Some((package_name, language, deps)) = Self::parse_manifest(&path)? {
+                let manifest = match Self::parse_manifest(&path) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!(
+                            "[Warning] Skipping unparseable manifest asset: {} ({e})",
+                            path.display()
+                        );
+                        continue;
+                    }
+                };
+
+                if let Some((package_name, language, deps)) = manifest {
                     let dir = path.parent().unwrap_or(root);
                     let node_id = graph.ensure_node(
                         &package_name,

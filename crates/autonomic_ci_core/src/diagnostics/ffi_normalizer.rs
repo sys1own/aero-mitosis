@@ -121,7 +121,7 @@ impl SignalSupervisor {
             libc::SIGUSR2,
         ] {
             let mut sa: libc::sigaction = unsafe { std::mem::zeroed() };
-            sa.sa_sigaction = crash_handler as usize;
+            sa.sa_sigaction = crash_handler as *const () as usize;
             unsafe { sigemptyset(&mut sa.sa_mask) };
             sa.sa_flags = libc::SA_ONSTACK | libc::SA_SIGINFO;
 
