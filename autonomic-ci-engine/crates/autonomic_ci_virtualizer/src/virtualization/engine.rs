@@ -317,3 +317,65 @@ impl CowEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_config(base: &Path) -> VirtualEnvConfig {
+        VirtualEnvConfig {
+            lower_dir: base.join("lower"),
+            upper_dir: base.join("upper"),
+            merged_dir: base.join("merged"),
+            work_dir: base.join("work"),
+        }
+    }
+
+    #[test]
+    fn cow_engine_mount_sync_and_commit() {
+        let base = std::env::temp_dir().join(format!("acv_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        let config = make_config(&base);
+        fs::create_dir_all(&config.lower_dir).unwrap();
+        fs::write(config.lower_dir.join("foo.txt"), "lower\n").unwrap();
+
+        fs::create_dir_all(&config.upper_dir).unwrap();
+        fs::write(config.upper_dir.join("bar.txt"), "upper\n").unwrap();
+
+        CowEngine::mount(&config).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(config.merged_dir.join("foo.txt")).unwrap(),
+            "lower\n"
+        );
+        assert_eq!(
+            fs::read_to_string(config.merged_dir.join("bar.txt")).unwrap(),
+            "upper\n"
+        );
+
+        fs::write(config.upper_dir.join("foo.txt"), "changed\n").unwrap();
+        CowEngine::synchronize_upper(&config, None).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(config.merged_dir.join("foo.txt")).unwrap(),
+            "changed\n"
+        );
+
+        let report = CowEngine::commit(&config).unwrap();
+        assert!(report.files_written.iter().any(|p| p == Path::new("foo.txt")));
+        assert!(report.bytes_mutated > 0);
+
+        assert_eq!(
+            fs::read_to_string(config.lower_dir.join("foo.txt")).unwrap(),
+            "changed\n"
+        );
+        assert_eq!(
+            fs::read_to_string(config.lower_dir.join("bar.txt")).unwrap(),
+            "upper\n"
+        );
+
+        CowEngine::teardown(&config).unwrap();
+        let _ = fs::remove_dir_all(&base);
+    }
+}
