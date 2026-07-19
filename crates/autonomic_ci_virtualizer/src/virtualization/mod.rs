@@ -7,9 +7,9 @@ pub mod macos_apfs;
 pub mod macos_fsevents;
 
 #[cfg(windows)]
-pub mod windows_projfs;
-#[cfg(windows)]
 pub mod windows_fallback;
+#[cfg(windows)]
+pub mod windows_projfs;
 
 mod engine;
 pub use engine::DefaultVirtualizer;

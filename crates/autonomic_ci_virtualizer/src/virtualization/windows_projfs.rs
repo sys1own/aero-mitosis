@@ -62,9 +62,7 @@ unsafe extern "system" fn get_enum_cb(
     E_INVALIDARG
 }
 
-unsafe extern "system" fn get_placeholder_cb(
-    _callbackdata: *const PRJ_CALLBACK_DATA,
-) -> HRESULT {
+unsafe extern "system" fn get_placeholder_cb(_callbackdata: *const PRJ_CALLBACK_DATA) -> HRESULT {
     E_INVALIDARG
 }
 
