@@ -2,3 +2,11 @@
 name = "autonomic_ci_parser"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+tree-sitter = "0.20.10"
+tree-sitter-rust = "0.20.4"
+tree-sitter-go = "0.20.0"
+tree-sitter-python = "0.20.2"
+toml = "0.5"
+serde = { version = "1", features = ["derive"] }
