@@ -178,10 +178,8 @@ cargo test --workspace
 
 ### 3. Run the Engine
 
-Launch the primary workspace application[cite: 1]:
+Launch the primary workspace application:
 
 ```bash
 cargo run
-```
-
 ```
