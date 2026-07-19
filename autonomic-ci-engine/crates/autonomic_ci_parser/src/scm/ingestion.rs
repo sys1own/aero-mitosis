@@ -116,11 +116,13 @@ impl StructuralCausalGraph {
     /// Return a topological ordering of package ids using Kahn's algorithm.
     /// External nodes are included but have no outgoing edges.
     pub fn topological_order(&self) -> Option<Vec<usize>> {
+        // Edges point from a package to its dependency. A valid build order
+        // processes dependencies before the packages that depend on them.
         let mut in_degree = vec![0; self.nodes.len()];
-        let mut adj: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut dependents: HashMap<usize, Vec<usize>> = HashMap::new();
         for edge in &self.edges {
-            in_degree[edge.to] += 1;
-            adj.entry(edge.from).or_default().push(edge.to);
+            in_degree[edge.from] += 1;
+            dependents.entry(edge.to).or_default().push(edge.from);
         }
 
         let mut queue: VecDeque<usize> = self
@@ -133,8 +135,8 @@ impl StructuralCausalGraph {
         let mut order = Vec::with_capacity(self.nodes.len());
         while let Some(id) = queue.pop_front() {
             order.push(id);
-            if let Some(neighbors) = adj.get(&id) {
-                for &next in neighbors {
+            if let Some(children) = dependents.get(&id) {
+                for &next in children {
                     in_degree[next] -= 1;
                     if in_degree[next] == 0 {
                         queue.push_back(next);

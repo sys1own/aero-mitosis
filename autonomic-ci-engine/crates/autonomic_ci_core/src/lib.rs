@@ -1,1 +1,2 @@
-// Placeholder for autonomic CI core implementation.
+pub mod diagnostics;
+pub mod scheduler;
