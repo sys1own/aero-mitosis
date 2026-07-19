@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/autonomic_ci_virtualizer",
+    "crates/autonomic_ci_parser",
+    "crates/autonomic_ci_core",
+]
