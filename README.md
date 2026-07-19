@@ -4,7 +4,7 @@
 
 Welcome to **Aero-Mitosis**, a high-performance build orchestration engine designed to treat your software compilation process as a dynamic, self-healing system.
 
-Standard CI tools are passive—they break when things go wrong, leaving you to clean up the mess. Aero-Mitosis is different. It’s an autonomic daemon that sits in your workspace, monitors your builds in real-time, and—when a failure is detected—automatically diagnoses the root cause and repairs your configuration so you can get back to coding.
+Aero-Mitosis is an autonomic daemon that sits in your workspace, monitors your builds in real-time, diagnoses the root cause for any failure and repairs your configuration so you can get back to coding.
 
 ## Why Aero-Mitosis?
 
