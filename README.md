@@ -250,4 +250,4 @@ CI runs on **Ubuntu**, **macOS**, and **Windows** to ensure cross‑platform rel
 
 Aero‑Mitosis stands on the shoulders of giants. Special thanks to the Rust community, Tree‑sitter, and the open‑source projects that make autonomic computing a reality.
 
-```
+---
