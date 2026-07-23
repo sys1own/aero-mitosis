@@ -10,8 +10,10 @@
 
 #[cfg(unix)]
 use std::backtrace::Backtrace;
+#[cfg(unix)]
 use std::ffi::c_void;
 use std::fmt;
+#[cfg(unix)]
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
