@@ -17,6 +17,10 @@ use windows_sys::Win32::Storage::FileSystem::CreateHardLinkW;
 use super::traits::{VirtualEnvConfig, VirtualizerError};
 
 /// Create an NTFS hard link from `src` (existing) to `dst` (new link).
+///
+/// # Errors
+///
+/// Returns the last OS error if `CreateHardLinkW` fails.
 pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
     let dst_w: Vec<u16> = OsStr::new(dst).encode_wide().chain(Some(0)).collect();
     let src_w: Vec<u16> = OsStr::new(src).encode_wide().chain(Some(0)).collect();
@@ -34,6 +38,11 @@ pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
 /// fall back to the hard-link CoW engine. If it succeeds, stop the instance
 /// immediately because this milestone does not yet include a full ProjFS
 /// callback provider.
+///
+/// # Errors
+///
+/// Always returns `VirtualizerError::AccessDenied` so that the cross-platform
+/// CoW engine is used.
 pub fn mount_with_projfs(_config: &VirtualEnvConfig) -> Result<(), VirtualizerError> {
     // This milestone does not include a full ProjFS provider. Always signal
     // the caller to fall back to the cross-platform CoW engine.

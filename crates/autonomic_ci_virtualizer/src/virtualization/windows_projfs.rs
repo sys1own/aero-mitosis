@@ -81,6 +81,17 @@ unsafe extern "system" fn get_file_data_cb(
 /// Returns `VirtualizerError::AccessDenied` if Windows rejects the request due
 /// to missing privileges, allowing the caller to fall back to the hard-link CoW
 /// engine. Other ProjFS errors are reported as `SystemFault`.
+///
+/// # Safety
+///
+/// This function calls the Windows ProjFS API, which performs unsynchronized
+/// pointer operations. The caller must ensure `config.merged_dir` is a valid
+/// path and that no other thread is modifying it during the call.
+///
+/// # Errors
+///
+/// Returns `VirtualizerError::AccessDenied` for privilege failures or
+/// `VirtualizerError::SystemFault` for unexpected ProjFS errors.
 pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, VirtualizerError> {
     let root = path_to_pcwstr(&config.merged_dir);
 
