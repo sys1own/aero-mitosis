@@ -83,12 +83,7 @@ unsafe extern "system" fn get_file_data_cb(
 pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, VirtualizerError> {
     let root = path_to_pcwstr(&config.merged_dir);
 
-    let hr = PrjMarkDirectoryAsPlaceholder(
-        root.as_ptr(),
-        ptr::null(),
-        ptr::null(),
-        ptr::null(),
-    );
+    let hr = PrjMarkDirectoryAsPlaceholder(root.as_ptr(), ptr::null(), ptr::null(), ptr::null());
     if hr != S_OK && hr != E_ACCESSDENIED {
         return Err(VirtualizerError::SystemFault(format!(
             "PrjMarkDirectoryAsPlaceholder failed: {hr:#x}"

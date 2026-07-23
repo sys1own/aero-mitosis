@@ -21,13 +21,7 @@ pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
     let dst_w: Vec<u16> = OsStr::new(dst).encode_wide().chain(Some(0)).collect();
     let src_w: Vec<u16> = OsStr::new(src).encode_wide().chain(Some(0)).collect();
 
-    let res = unsafe {
-        CreateHardLinkW(
-            dst_w.as_ptr(),
-            src_w.as_ptr(),
-            ptr::null(),
-        )
-    };
+    let res = unsafe { CreateHardLinkW(dst_w.as_ptr(), src_w.as_ptr(), ptr::null()) };
 
     if res != 0 {
         Ok(())
