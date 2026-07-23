@@ -90,7 +90,16 @@ mod tests {
         .expect("cargo should be installed");
 
     assert!(status.success(), "cargo build failed in sandbox");
-    assert!(config.merged_dir.join("target/debug/sandbox").exists());
+    let bin_name = if cfg!(windows) {
+        "sandbox.exe"
+    } else {
+        "sandbox"
+    };
+    assert!(config
+        .merged_dir
+        .join("target/debug")
+        .join(bin_name)
+        .exists());
 
     virtualizer.teardown(&config).await.unwrap();
     let _ = fs::remove_dir_all(&base);
