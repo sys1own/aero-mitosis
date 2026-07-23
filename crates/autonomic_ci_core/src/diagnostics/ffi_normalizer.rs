@@ -138,11 +138,6 @@ impl SignalSupervisor {
         // Prevent the compiler from dropping `old_ss` too early.
         let _ = old_ss;
     }
-
-    #[cfg(not(unix))]
-    fn install(&mut self) {
-        // No-op on non-Unix platforms.
-    }
 }
 
 impl Default for SignalSupervisor {
@@ -226,11 +221,6 @@ fn signal_name(signum: i32) -> String {
         libc::SIGUSR2 => "SIGUSR2".into(),
         _ => format!("SIG{signum}"),
     }
-}
-
-#[cfg(not(unix))]
-fn signal_name(_signum: i32) -> String {
-    "UNKNOWN".into()
 }
 
 #[cfg(test)]
