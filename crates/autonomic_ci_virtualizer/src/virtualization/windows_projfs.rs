@@ -5,6 +5,7 @@
 //! directory. In this milestone the callback provider is intentionally minimal;
 //! the production-grade provider logic lives in `windows_fallback.rs` which
 //! falls back to NTFS hard-link CoW when ProjFS is unavailable.
+#![allow(dead_code)]
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
