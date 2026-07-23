@@ -8,9 +8,12 @@
 //! The captured backtrace is serialized into a unified `NormalizedCrashPayload`
 //! JSON schema that can be consumed by downstream causal analysis.
 
+#[cfg(unix)]
 use std::backtrace::Backtrace;
+#[cfg(unix)]
 use std::ffi::c_void;
 use std::fmt;
+#[cfg(unix)]
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -65,7 +68,7 @@ impl SignalSupervisor {
                 alt_stack: Vec::new(),
             };
             supervisor.install();
-            return supervisor;
+            supervisor
         }
 
         #[cfg(not(unix))]
@@ -134,11 +137,6 @@ impl SignalSupervisor {
 
         // Prevent the compiler from dropping `old_ss` too early.
         let _ = old_ss;
-    }
-
-    #[cfg(not(unix))]
-    fn install(&mut self) {
-        // No-op on non-Unix platforms.
     }
 }
 
@@ -223,11 +221,6 @@ fn signal_name(signum: i32) -> String {
         libc::SIGUSR2 => "SIGUSR2".into(),
         _ => format!("SIG{signum}"),
     }
-}
-
-#[cfg(not(unix))]
-fn signal_name(_signum: i32) -> String {
-    "UNKNOWN".into()
 }
 
 #[cfg(test)]

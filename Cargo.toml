@@ -27,3 +27,5 @@ tokio = { version = "1.38", features = ["full"] }
 
 [dev-dependencies]
 autonomic_ci_core = { path = "crates/autonomic_ci_core" }
+autonomic_ci_parser = { path = "crates/autonomic_ci_parser" }
+autonomic_ci_virtualizer = { path = "crates/autonomic_ci_virtualizer" }

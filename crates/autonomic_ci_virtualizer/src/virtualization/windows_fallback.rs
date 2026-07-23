@@ -12,24 +12,20 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
-use windows_sys::Win32::Foundation::PCWSTR;
-use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 use windows_sys::Win32::Storage::FileSystem::CreateHardLinkW;
 
 use super::traits::{VirtualEnvConfig, VirtualizerError};
 
 /// Create an NTFS hard link from `src` (existing) to `dst` (new link).
+///
+/// # Errors
+///
+/// Returns the last OS error if `CreateHardLinkW` fails.
 pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
     let dst_w: Vec<u16> = OsStr::new(dst).encode_wide().chain(Some(0)).collect();
     let src_w: Vec<u16> = OsStr::new(src).encode_wide().chain(Some(0)).collect();
 
-    let res = unsafe {
-        CreateHardLinkW(
-            PCWSTR(dst_w.as_ptr()),
-            PCWSTR(src_w.as_ptr()),
-            ptr::null::<SECURITY_ATTRIBUTES>(),
-        )
-    };
+    let res = unsafe { CreateHardLinkW(dst_w.as_ptr(), src_w.as_ptr(), ptr::null()) };
 
     if res != 0 {
         Ok(())
@@ -42,18 +38,13 @@ pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
 /// fall back to the hard-link CoW engine. If it succeeds, stop the instance
 /// immediately because this milestone does not yet include a full ProjFS
 /// callback provider.
-pub fn mount_with_projfs(config: &VirtualEnvConfig) -> Result<(), VirtualizerError> {
-    unsafe {
-        match super::windows_projfs::try_start(config) {
-            Ok(handle) => {
-                handle.stop();
-                // A complete provider would retain the handle. For now we
-                // deliberately fall back so the cross-platform CoW engine owns
-                // the workspace view.
-                Err(VirtualizerError::AccessDenied)
-            }
-            Err(VirtualizerError::AccessDenied) => Err(VirtualizerError::AccessDenied),
-            Err(e) => Err(e),
-        }
-    }
+///
+/// # Errors
+///
+/// Always returns `VirtualizerError::AccessDenied` so that the cross-platform
+/// CoW engine is used.
+pub fn mount_with_projfs(_config: &VirtualEnvConfig) -> Result<(), VirtualizerError> {
+    // This milestone does not include a full ProjFS provider. Always signal
+    // the caller to fall back to the cross-platform CoW engine.
+    Err(VirtualizerError::AccessDenied)
 }

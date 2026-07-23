@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use autonomic_ci_core::diagnostics::causal_gradient::CompilerFailure;
 use autonomic_ci_core::self_healing::router::{
-    Patch, PenaltyWeights, SelfHealingConfig, SelfHealingRouter, StaticPatchGenerator,
-    ValidationBaseline, ValidationResult, Validator,
+    Patch, PatchGenerator, PenaltyWeights, SelfHealingConfig, SelfHealingRouter,
+    StaticPatchGenerator, ValidationBaseline, ValidationResult, Validator,
 };
 use autonomic_ci_parser::ast::matrix_mapper::FeatureVector;
 use autonomic_ci_parser::scm::ingestion::{NodeType, SCMNode, StructuralCausalGraph};
@@ -105,12 +105,12 @@ async fn repairs_broken_config_and_commits() {
         exit_code: Some(1),
     };
 
-    let generator = StaticPatchGenerator {
+    let generator: Arc<dyn PatchGenerator> = Arc::new(StaticPatchGenerator {
         patches: vec![Patch {
             path: PathBuf::from("config.txt"),
             content: "fixed=true\n".into(),
         }],
-    };
+    });
 
     let config = SelfHealingConfig {
         weights: PenaltyWeights {
@@ -133,7 +133,7 @@ async fn repairs_broken_config_and_commits() {
             &graph,
             &deltas,
             &baseline_metrics,
-            &generator,
+            Arc::clone(&generator),
             Arc::new(MockValidator),
         )
         .await
@@ -158,7 +158,7 @@ async fn discards_failing_and_overbudget_candidates_then_commits() {
         exit_code: Some(1),
     };
 
-    let generator = StaticPatchGenerator {
+    let generator: Arc<dyn PatchGenerator> = Arc::new(StaticPatchGenerator {
         patches: vec![
             Patch {
                 path: PathBuf::from("config.txt"),
@@ -173,7 +173,7 @@ async fn discards_failing_and_overbudget_candidates_then_commits() {
                 content: "fixed=true\n".into(),
             },
         ],
-    };
+    });
 
     let config = SelfHealingConfig {
         weights: PenaltyWeights {
@@ -196,7 +196,7 @@ async fn discards_failing_and_overbudget_candidates_then_commits() {
             &graph,
             &deltas,
             &baseline_metrics,
-            &generator,
+            Arc::clone(&generator),
             Arc::new(MockValidator),
         )
         .await

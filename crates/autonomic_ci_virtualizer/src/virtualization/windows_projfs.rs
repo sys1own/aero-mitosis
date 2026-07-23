@@ -5,13 +5,15 @@
 //! directory. In this milestone the callback provider is intentionally minimal;
 //! the production-grade provider logic lives in `windows_fallback.rs` which
 //! falls back to NTFS hard-link CoW when ProjFS is unavailable.
+#![allow(dead_code)]
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
-use windows_sys::Win32::Foundation::{E_ACCESSDENIED, GUID, HRESULT, PCWSTR};
+use windows_sys::core::{GUID, HRESULT, PCWSTR};
+use windows_sys::Win32::Foundation::E_ACCESSDENIED;
 use windows_sys::Win32::Storage::ProjectedFileSystem::{
     PrjMarkDirectoryAsPlaceholder, PrjStartVirtualizing, PrjStopVirtualizing, PRJ_CALLBACKS,
     PRJ_CALLBACK_DATA, PRJ_DIR_ENTRY_BUFFER_HANDLE, PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT,
@@ -79,15 +81,21 @@ unsafe extern "system" fn get_file_data_cb(
 /// Returns `VirtualizerError::AccessDenied` if Windows rejects the request due
 /// to missing privileges, allowing the caller to fall back to the hard-link CoW
 /// engine. Other ProjFS errors are reported as `SystemFault`.
+///
+/// # Safety
+///
+/// This function calls the Windows ProjFS API, which performs unsynchronized
+/// pointer operations. The caller must ensure `config.merged_dir` is a valid
+/// path and that no other thread is modifying it during the call.
+///
+/// # Errors
+///
+/// Returns `VirtualizerError::AccessDenied` for privilege failures or
+/// `VirtualizerError::SystemFault` for unexpected ProjFS errors.
 pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, VirtualizerError> {
     let root = path_to_pcwstr(&config.merged_dir);
 
-    let hr = PrjMarkDirectoryAsPlaceholder(
-        PCWSTR(root.as_ptr()),
-        PCWSTR(ptr::null()),
-        ptr::null(),
-        ptr::null(),
-    );
+    let hr = PrjMarkDirectoryAsPlaceholder(root.as_ptr(), ptr::null(), ptr::null(), ptr::null());
     if hr != S_OK && hr != E_ACCESSDENIED {
         return Err(VirtualizerError::SystemFault(format!(
             "PrjMarkDirectoryAsPlaceholder failed: {hr:#x}"
@@ -105,9 +113,9 @@ pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, Virtu
         CancelCommandCallback: None,
     };
 
-    let mut ctx: PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT = ptr::null_mut();
+    let mut ctx: PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT = 0;
     let hr = PrjStartVirtualizing(
-        PCWSTR(root.as_ptr()),
+        root.as_ptr(),
         &callbacks,
         ptr::null(),
         ptr::null(),

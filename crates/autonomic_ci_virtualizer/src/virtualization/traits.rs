@@ -54,7 +54,7 @@ impl From<io::Error> for VirtualizerError {
 
 /// Primary contract for mounting, synchronizing, and tearing down a virtual workspace.
 #[allow(async_fn_in_trait)]
-pub trait WorkspaceVirtualizer {
+pub trait WorkspaceVirtualizer: Send + Sync {
     async fn initialize(&self, config: &VirtualEnvConfig) -> Result<(), VirtualizerError>;
     async fn mount(&self, config: &VirtualEnvConfig) -> Result<(), VirtualizerError>;
     async fn synchronize_upper(&self, config: &VirtualEnvConfig) -> Result<(), VirtualizerError>;

@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crossbeam_channel::Receiver;
@@ -20,7 +21,22 @@ pub struct DefaultVirtualizer {
     _private: (),
 }
 
+impl Default for DefaultVirtualizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultVirtualizer {
+    /// Create a platform-appropriate virtualizer.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use autonomic_ci_virtualizer::virtualization::{DefaultVirtualizer, WorkspaceVirtualizer};
+    ///
+    /// let virtualizer = DefaultVirtualizer::new();
+    /// ```
     pub fn new() -> Self {
         DefaultVirtualizer {
             #[cfg(target_os = "macos")]
@@ -67,9 +83,9 @@ impl WorkspaceVirtualizer for DefaultVirtualizer {
 
         #[cfg(target_os = "macos")]
         {
-            let (handle, rx) = super::macos_fsevents::WatcherHandle::start(&upper_dir)?;
+            let handle = super::macos_fsevents::WatcherHandle::start(&upper_dir)?;
+            *self.rx.lock().unwrap() = Some(handle.receiver().clone());
             *self.watcher.lock().unwrap() = Some(handle);
-            *self.rx.lock().unwrap() = Some(rx);
         }
 
         Ok(())
@@ -297,9 +313,30 @@ impl CowEngine {
         }
 
         match (src_meta.modified(), dst_meta.modified()) {
-            (Ok(src_t), Ok(dst_t)) if src_t != dst_t => Ok(true),
-            (Ok(_), Err(_)) | (Err(_), Ok(_)) | (Err(_), Err(_)) => Ok(true),
-            _ => Ok(false),
+            (Ok(src_t), Ok(dst_t)) if src_t != dst_t => return Ok(true),
+            (Ok(_), Err(_)) | (Err(_), Ok(_)) | (Err(_), Err(_)) => return Ok(true),
+            _ => {}
+        }
+
+        // File metadata can match even when contents differ (e.g. low-resolution
+        // mtimes), so fall back to a block-wise content comparison.
+        let mut src_file = std::io::BufReader::new(fs::File::open(src)?);
+        let mut dst_file = std::io::BufReader::new(fs::File::open(dst)?);
+        let mut src_buf = [0u8; 8192];
+        let mut dst_buf = [0u8; 8192];
+
+        loop {
+            let src_n = src_file.read(&mut src_buf)?;
+            let dst_n = dst_file.read(&mut dst_buf)?;
+            if src_n != dst_n {
+                return Ok(true);
+            }
+            if src_n == 0 {
+                return Ok(false);
+            }
+            if src_buf[..src_n] != dst_buf[..dst_n] {
+                return Ok(true);
+            }
         }
     }
 
@@ -385,6 +422,134 @@ mod tests {
         );
 
         CowEngine::teardown(&config).unwrap();
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn default_virtualizer_initializes_mounts_and_commits() {
+        let base = std::env::temp_dir().join(format!("acv_default_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        fs::create_dir_all(&base.join("lower/src")).unwrap();
+        fs::write(base.join("lower/src/main.rs"), "fn main() {}\n").unwrap();
+
+        let config = VirtualEnvConfig {
+            lower_dir: base.join("lower"),
+            upper_dir: base.join("upper"),
+            merged_dir: base.join("merged"),
+            work_dir: base.join("work"),
+        };
+
+        let virtualizer = DefaultVirtualizer::new();
+        virtualizer.initialize(&config).await.unwrap();
+        virtualizer.mount(&config).await.unwrap();
+
+        assert!(config.merged_dir.join("src/main.rs").exists());
+
+        fs::create_dir_all(config.upper_dir.join("src")).unwrap();
+        fs::write(
+            config.upper_dir.join("src/main.rs"),
+            "fn main() { println!(\"ok\"); }\n",
+        )
+        .unwrap();
+        virtualizer.synchronize_upper(&config).await.unwrap();
+
+        assert_eq!(
+            fs::read_to_string(config.merged_dir.join("src/main.rs")).unwrap(),
+            "fn main() { println!(\"ok\"); }\n"
+        );
+
+        let report = virtualizer.commit(&config).await.unwrap();
+        assert!(report
+            .files_written
+            .iter()
+            .any(|p| p == Path::new("src/main.rs")));
+
+        assert_eq!(
+            fs::read_to_string(config.lower_dir.join("src/main.rs")).unwrap(),
+            "fn main() { println!(\"ok\"); }\n"
+        );
+
+        virtualizer.teardown(&config).await.unwrap();
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn initialize_fails_when_lower_dir_missing() {
+        let base = std::env::temp_dir().join(format!("acv_missing_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        let config = VirtualEnvConfig {
+            lower_dir: base.join("nope"),
+            upper_dir: base.join("upper"),
+            merged_dir: base.join("merged"),
+            work_dir: base.join("work"),
+        };
+
+        let virtualizer = DefaultVirtualizer::new();
+        let result = virtualizer.initialize(&config).await;
+        assert!(matches!(result, Err(VirtualizerError::SystemFault(_))));
+    }
+
+    #[tokio::test]
+    async fn nested_directories_and_existing_files_sync() {
+        let base = std::env::temp_dir().join(format!("acv_nested_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        fs::create_dir_all(&base.join("lower/a/b")).unwrap();
+        fs::write(base.join("lower/a/b/c.txt"), "orig\n").unwrap();
+
+        let config = make_config(&base);
+        CowEngine::initialize(&config).unwrap();
+        CowEngine::mount(&config).unwrap();
+
+        fs::create_dir_all(&config.upper_dir.join("a/b")).unwrap();
+        fs::write(config.upper_dir.join("a/b/c.txt"), "new\n").unwrap();
+        CowEngine::synchronize_upper(&config, None).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(config.merged_dir.join("a/b/c.txt")).unwrap(),
+            "new\n"
+        );
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn teardown_cleans_up_even_after_partial_failure() {
+        let base = std::env::temp_dir().join(format!("acv_teardown_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        let config = make_config(&base);
+        fs::create_dir_all(&config.lower_dir).unwrap();
+        fs::create_dir_all(&config.merged_dir).unwrap();
+
+        // Teardown removes merged/work but should not panic if work does not exist.
+        CowEngine::teardown(&config).unwrap();
+        assert!(!config.merged_dir.exists());
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn permission_error_is_reported_gracefully() {
+        // The best cross-platform approximation is to pass a non-directory lower layer.
+        let base = std::env::temp_dir().join(format!("acv_perm_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join("lower"), "not a directory\n").unwrap();
+
+        let config = VirtualEnvConfig {
+            lower_dir: base.join("lower"),
+            upper_dir: base.join("upper"),
+            merged_dir: base.join("merged"),
+            work_dir: base.join("work"),
+        };
+
+        let virtualizer = DefaultVirtualizer::new();
+        let result = virtualizer.mount(&config).await;
+        assert!(result.is_err());
+
         let _ = fs::remove_dir_all(&base);
     }
 }
