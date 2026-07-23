@@ -3,7 +3,6 @@
 **Autonomic CI Engine & Self-Healing Build Orchestrator**
 
 [![Crates.io](https://img.shields.io/crates/v/aero-mitosis.svg)](https://crates.io/crates/aero-mitosis)
-[![Docs.rs](https://docs.rs/aero-mitosis/badge.svg)](https://docs.rs/aero-mitosis)
 [![CI](https://github.com/sys1own/aero-mitosis/actions/workflows/ci.yml/badge.svg)](https://github.com/sys1own/aero-mitosis/actions)
 
 Welcome to **Aero-Mitosis**, a high-performance build orchestration engine designed to treat your software compilation process as a dynamic, self-healing system.
