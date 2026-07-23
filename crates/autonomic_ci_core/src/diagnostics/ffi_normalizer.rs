@@ -8,6 +8,7 @@
 //! The captured backtrace is serialized into a unified `NormalizedCrashPayload`
 //! JSON schema that can be consumed by downstream causal analysis.
 
+#[cfg(unix)]
 use std::backtrace::Backtrace;
 use std::ffi::c_void;
 use std::fmt;
