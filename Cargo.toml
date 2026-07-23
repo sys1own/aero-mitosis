@@ -24,8 +24,11 @@ path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.38", features = ["full"] }
-
-[dev-dependencies]
+clap = { version = "=4.4.18", features = ["derive"] }
+env_logger = "=0.10.2"
+log = "=0.4.20"
 autonomic_ci_core = { path = "crates/autonomic_ci_core" }
 autonomic_ci_parser = { path = "crates/autonomic_ci_parser" }
 autonomic_ci_virtualizer = { path = "crates/autonomic_ci_virtualizer" }
+
+[dev-dependencies]
