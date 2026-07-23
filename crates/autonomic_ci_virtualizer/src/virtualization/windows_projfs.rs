@@ -11,7 +11,8 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
-use windows_sys::Win32::Foundation::{E_ACCESSDENIED, GUID, HRESULT, PCWSTR};
+use windows_sys::core::{GUID, HRESULT, PCWSTR};
+use windows_sys::Win32::Foundation::E_ACCESSDENIED;
 use windows_sys::Win32::Storage::ProjectedFileSystem::{
     PrjMarkDirectoryAsPlaceholder, PrjStartVirtualizing, PrjStopVirtualizing, PRJ_CALLBACKS,
     PRJ_CALLBACK_DATA, PRJ_DIR_ENTRY_BUFFER_HANDLE, PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT,
@@ -83,8 +84,8 @@ pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, Virtu
     let root = path_to_pcwstr(&config.merged_dir);
 
     let hr = PrjMarkDirectoryAsPlaceholder(
-        PCWSTR(root.as_ptr()),
-        PCWSTR(ptr::null()),
+        root.as_ptr(),
+        ptr::null(),
         ptr::null(),
         ptr::null(),
     );
@@ -105,9 +106,9 @@ pub unsafe fn try_start(config: &VirtualEnvConfig) -> Result<ProjFsHandle, Virtu
         CancelCommandCallback: None,
     };
 
-    let mut ctx: PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT = ptr::null_mut();
+    let mut ctx: PRJ_NAMESPACE_VIRTUALIZATION_CONTEXT = 0;
     let hr = PrjStartVirtualizing(
-        PCWSTR(root.as_ptr()),
+        root.as_ptr(),
         &callbacks,
         ptr::null(),
         ptr::null(),

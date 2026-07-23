@@ -83,9 +83,9 @@ impl WorkspaceVirtualizer for DefaultVirtualizer {
 
         #[cfg(target_os = "macos")]
         {
-            let (handle, rx) = super::macos_fsevents::WatcherHandle::start(&upper_dir)?;
+            let handle = super::macos_fsevents::WatcherHandle::start(&upper_dir)?;
+            *self.rx.lock().unwrap() = Some(handle.receiver().clone());
             *self.watcher.lock().unwrap() = Some(handle);
-            *self.rx.lock().unwrap() = Some(rx);
         }
 
         Ok(())

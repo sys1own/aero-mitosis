@@ -12,8 +12,6 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
-use windows_sys::Win32::Foundation::PCWSTR;
-use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 use windows_sys::Win32::Storage::FileSystem::CreateHardLinkW;
 
 use super::traits::{VirtualEnvConfig, VirtualizerError};
@@ -25,9 +23,9 @@ pub fn create_hardlink(src: &Path, dst: &Path) -> io::Result<()> {
 
     let res = unsafe {
         CreateHardLinkW(
-            PCWSTR(dst_w.as_ptr()),
-            PCWSTR(src_w.as_ptr()),
-            ptr::null::<SECURITY_ATTRIBUTES>(),
+            dst_w.as_ptr(),
+            src_w.as_ptr(),
+            ptr::null(),
         )
     };
 
