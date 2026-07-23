@@ -44,12 +44,24 @@ pub const GO: LanguageQueries = LanguageQueries {
         "(function_declaration) @function\n(method_declaration) @method\n(func_literal) @func_lit",
 };
 
+/// C++ query bundle.
+pub const CPP: LanguageQueries = LanguageQueries {
+    language_name: "cpp",
+    namespace:
+        "(namespace_definition) @namespace\n(using_declaration) @using\n(preproc_include) @include",
+    structural:
+        "(class_specifier) @class\n(struct_specifier) @struct\n(enum_specifier) @enum\n(type_definition) @typedef\n(template_declaration) @template",
+    functional:
+        "(function_definition) @function\n(lambda_expression) @lambda",
+};
+
 /// Return the query bundle for a language name, or `None` if unsupported.
 pub fn for_language(name: &str) -> Option<LanguageQueries> {
     match name {
         "rust" => Some(RUST),
         "python" => Some(PYTHON),
         "go" => Some(GO),
+        "cpp" | "c++" | "cplusplus" => Some(CPP),
         _ => None,
     }
 }

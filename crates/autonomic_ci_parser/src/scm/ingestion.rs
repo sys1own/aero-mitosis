@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+type ParsedManifest = Option<(String, String, Vec<(String, DependencyType)>)>;
+
 /// Kinds of nodes that can appear in the causal graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeType {
@@ -111,6 +113,14 @@ impl StructuralCausalGraph {
         self.by_name.get(name).and_then(|&id| self.nodes.get(id))
     }
 
+    /// Rebuild the name-to-id lookup index after structural changes or deserialization.
+    pub fn rebuild_index(&mut self) {
+        self.by_name.clear();
+        for (id, node) in self.nodes.iter().enumerate() {
+            self.by_name.insert(node.name.clone(), id);
+        }
+    }
+
     pub fn add_edge(&mut self, from: usize, to: usize, dependency_type: DependencyType) {
         self.edges.push(SCMEdge {
             from,
@@ -204,6 +214,15 @@ pub struct IngestionEngine;
 
 impl IngestionEngine {
     /// Walk `root`, parse dependency manifests, and produce a causal graph.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use autonomic_ci_parser::scm::ingestion::IngestionEngine;
+    ///
+    /// let graph = IngestionEngine::discover(Path::new(".")).expect("graph discovery");
+    /// ```
     pub fn discover(root: &Path) -> Result<StructuralCausalGraph, IngestionError> {
         let mut graph = StructuralCausalGraph::new();
         Self::discover_dir(root, &mut graph, root)?;
@@ -259,9 +278,7 @@ impl IngestionEngine {
         Ok(())
     }
 
-    fn parse_manifest(
-        path: &Path,
-    ) -> Result<Option<(String, String, Vec<(String, DependencyType)>)>, IngestionError> {
+    fn parse_manifest(path: &Path) -> Result<ParsedManifest, IngestionError> {
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
             match name {
                 "Cargo.toml" => Self::parse_cargo_toml(path),
@@ -275,9 +292,7 @@ impl IngestionEngine {
         }
     }
 
-    fn parse_cargo_toml(
-        path: &Path,
-    ) -> Result<Option<(String, String, Vec<(String, DependencyType)>)>, IngestionError> {
+    fn parse_cargo_toml(path: &Path) -> Result<ParsedManifest, IngestionError> {
         let content = fs::read_to_string(path)?;
         let value: toml::Value = toml::from_str(&content)?;
 
@@ -308,9 +323,7 @@ impl IngestionEngine {
         Ok(Some((name, "rust".to_string(), deps)))
     }
 
-    fn parse_go_mod(
-        path: &Path,
-    ) -> Result<Option<(String, String, Vec<(String, DependencyType)>)>, IngestionError> {
+    fn parse_go_mod(path: &Path) -> Result<ParsedManifest, IngestionError> {
         let content = fs::read_to_string(path)?;
         let mut name = String::new();
         let mut deps = Vec::new();
@@ -347,9 +360,7 @@ impl IngestionEngine {
         }
     }
 
-    fn parse_pyproject_toml(
-        path: &Path,
-    ) -> Result<Option<(String, String, Vec<(String, DependencyType)>)>, IngestionError> {
+    fn parse_pyproject_toml(path: &Path) -> Result<ParsedManifest, IngestionError> {
         let content = fs::read_to_string(path)?;
         let value: toml::Value = toml::from_str(&content)?;
 
@@ -432,9 +443,7 @@ impl IngestionEngine {
         Ok(Some((name, "python".to_string(), deps)))
     }
 
-    fn parse_requirements_txt(
-        path: &Path,
-    ) -> Result<Option<(String, String, Vec<(String, DependencyType)>)>, IngestionError> {
+    fn parse_requirements_txt(path: &Path) -> Result<ParsedManifest, IngestionError> {
         let dir_name = path
             .parent()
             .and_then(|p| p.file_name())
@@ -474,6 +483,16 @@ fn parse_pkg_name(spec: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn make_node(graph: &mut StructuralCausalGraph, name: &str) -> usize {
+        graph.add_node(SCMNode {
+            id: 0,
+            name: name.into(),
+            path: Default::default(),
+            language: "rust".into(),
+            node_type: NodeType::Package,
+        })
+    }
 
     #[test]
     fn discovers_cargo_and_python_deps() {
@@ -528,5 +547,103 @@ dependencies = ["requests>=2.28"]
         assert!(has_serde_edge);
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn duplicate_nodes_are_detected_by_name() {
+        let mut graph = StructuralCausalGraph::new();
+        let first = make_node(&mut graph, "dup");
+        let second = make_node(&mut graph, "dup");
+        assert_eq!(first, second);
+        assert_eq!(graph.nodes.len(), 1);
+    }
+
+    #[test]
+    fn topological_order_on_various_shapes() {
+        let mut graph = StructuralCausalGraph::new();
+        let a = make_node(&mut graph, "a");
+        let b = make_node(&mut graph, "b");
+        let c = make_node(&mut graph, "c");
+        let d = make_node(&mut graph, "d");
+
+        graph.add_edge(b, a, DependencyType::Compile);
+        graph.add_edge(c, a, DependencyType::Compile);
+        graph.add_edge(d, b, DependencyType::Compile);
+        graph.add_edge(d, c, DependencyType::Compile);
+
+        let order = graph.topological_order().unwrap();
+        let pos = |id: usize| order.iter().position(|&i| i == id).unwrap();
+
+        assert!(pos(a) < pos(b));
+        assert!(pos(a) < pos(c));
+        assert!(pos(b) < pos(d));
+        assert!(pos(c) < pos(d));
+
+        // Cycles return None.
+        let mut cyclic = StructuralCausalGraph::new();
+        let x = make_node(&mut cyclic, "x");
+        let y = make_node(&mut cyclic, "y");
+        cyclic.add_edge(x, y, DependencyType::Compile);
+        cyclic.add_edge(y, x, DependencyType::Compile);
+        assert!(cyclic.topological_order().is_none());
+    }
+
+    #[test]
+    fn serialization_round_trip_preserves_graph() {
+        let mut graph = StructuralCausalGraph::new();
+        let a = make_node(&mut graph, "a");
+        let b = make_node(&mut graph, "b");
+        graph.add_edge(b, a, DependencyType::Compile);
+
+        let serialized = serde_json::to_string(&graph).unwrap();
+        let mut restored: StructuralCausalGraph = serde_json::from_str(&serialized).unwrap();
+        restored.rebuild_index();
+
+        assert_eq!(restored.nodes.len(), 2);
+        assert_eq!(restored.edges.len(), 1);
+        assert!(restored.node_by_name("a").is_some());
+        assert!(restored.node_by_name("b").is_some());
+    }
+
+    #[test]
+    fn ingestion_performs_on_large_directory() {
+        let base = std::env::temp_dir().join(format!("aci_scm_large_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+
+        for i in 0..100 {
+            let dir = base.join(format!("pkg{i}"));
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("Cargo.toml"),
+                format!(
+                    r#"
+[package]
+name = "pkg{i}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1"
+"#
+                ),
+            )
+            .unwrap();
+        }
+
+        let graph = IngestionEngine::discover(&base).unwrap();
+        assert!(graph.node_by_name("pkg0").is_some());
+        assert!(graph.node_by_name("pkg99").is_some());
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn parse_pkg_name_handles_specifiers() {
+        assert_eq!(parse_pkg_name("requests>=2.28"), "requests");
+        assert_eq!(
+            parse_pkg_name("numpy==1.23 ; python_version >= \"3.8\""),
+            "numpy"
+        );
+        assert_eq!(parse_pkg_name("pandas[excel]"), "pandas");
     }
 }

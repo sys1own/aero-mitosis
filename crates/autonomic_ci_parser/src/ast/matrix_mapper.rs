@@ -76,7 +76,17 @@ pub struct StructuralDeltaMatrixMapper {
 }
 
 impl StructuralDeltaMatrixMapper {
-    /// Create a mapper for the named language ("rust", "python", or "go").
+    /// Create a mapper for the named language ("rust", "python", "go", or "cpp").
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use autonomic_ci_parser::ast::matrix_mapper::StructuralDeltaMatrixMapper;
+    ///
+    /// let mapper = StructuralDeltaMatrixMapper::new("rust").expect("rust is supported");
+    /// let vector = mapper.map("fn main() {}").expect("parses");
+    /// assert_eq!(vector.labels, vec!["namespace", "structural", "functional"]);
+    /// ```
     pub fn new(language_name: &str) -> Result<Self, ParserError> {
         let language = language_from_name(language_name)
             .ok_or_else(|| ParserError::UnknownLanguage(language_name.to_string()))?;
@@ -115,7 +125,7 @@ impl StructuralDeltaMatrixMapper {
 
         let values: Vec<f64> = new
             .into_iter()
-            .zip(old.into_iter())
+            .zip(old)
             .map(|(n, o)| (n as f64) - (o as f64))
             .collect();
 
@@ -143,6 +153,7 @@ fn language_from_name(name: &str) -> Option<Language> {
         "rust" => Some(tree_sitter_rust::language()),
         "python" => Some(tree_sitter_python::language()),
         "go" => Some(tree_sitter_go::language()),
+        "cpp" | "c++" | "cplusplus" => Some(tree_sitter_cpp::language()),
         _ => None,
     }
 }
@@ -163,10 +174,10 @@ fn parse(language: Language, source: &str) -> Result<tree_sitter::Tree, ParserEr
 
 fn count_captures(query: &Query, root: Node, source: &str) -> Result<usize, ParserError> {
     let mut cursor = QueryCursor::new();
-    let mut matches = cursor.matches(query, root, source.as_bytes());
+    let matches = cursor.matches(query, root, source.as_bytes());
     let mut count = 0usize;
 
-    while let Some(m) = matches.next() {
+    for m in matches {
         count += m.captures.len();
     }
 
@@ -209,5 +220,83 @@ fn qux() {}
         let baseline = mapper.map(old).unwrap();
         assert!(baseline.structural() >= 1.0);
         assert!(baseline.functional() >= 1.0);
+    }
+
+    #[test]
+    fn feature_vector_labels_match_values() {
+        let mapper = StructuralDeltaMatrixMapper::new("rust").unwrap();
+        let source = "fn main() {}";
+        let vector = mapper.map(source).unwrap();
+
+        assert_eq!(vector.labels.len(), vector.values.len());
+        assert_eq!(vector.labels, vec!["namespace", "structural", "functional"]);
+    }
+
+    #[test]
+    fn rust_queries_extract_expected_nodes() {
+        let source = r#"
+mod foo;
+use std::io;
+
+struct Bar;
+enum Baz { A, B }
+
+fn main() {}
+fn helper() {}
+"#;
+        let mapper = StructuralDeltaMatrixMapper::new("rust").unwrap();
+        let vector = mapper.map(source).unwrap();
+
+        assert_eq!(vector.namespace(), 2.0); // mod + use
+        assert_eq!(vector.structural(), 2.0); // struct + enum
+        assert_eq!(vector.functional(), 2.0); // two functions
+    }
+
+    #[test]
+    fn cpp_queries_extract_expected_nodes() {
+        let source = r#"
+#include <iostream>
+using namespace std;
+
+namespace ns {
+    class Foo {};
+    struct Bar {};
+    void baz() {}
+}
+"#;
+        let mapper = StructuralDeltaMatrixMapper::new("cpp").unwrap();
+        let vector = mapper.map(source).unwrap();
+
+        assert!(vector.namespace() >= 2.0); // include + using + namespace
+        assert_eq!(vector.structural(), 2.0); // class + struct
+        assert_eq!(vector.functional(), 1.0); // function
+    }
+
+    #[test]
+    fn malformed_source_does_not_panic() {
+        let mapper = StructuralDeltaMatrixMapper::new("rust").unwrap();
+        let source = "fn main( { broken";
+        let vector = mapper.map(source).unwrap();
+
+        // Tree-sitter recovers from errors; the vector should still be well-formed.
+        assert_eq!(vector.labels.len(), vector.values.len());
+        assert!(vector.values.iter().all(|&v| v >= 0.0));
+    }
+
+    #[test]
+    fn large_source_file_is_parsed() {
+        let mapper = StructuralDeltaMatrixMapper::new("rust").unwrap();
+        let mut lines = String::with_capacity(1024 * 1024);
+        for i in 0..10_000 {
+            lines.push_str(&format!("fn func_{i}() {{}}\n"));
+        }
+
+        let vector = mapper.map(&lines).unwrap();
+        assert!(vector.functional() >= 10_000.0);
+    }
+
+    #[test]
+    fn unsupported_language_returns_error() {
+        assert!(StructuralDeltaMatrixMapper::new("fortran").is_err());
     }
 }

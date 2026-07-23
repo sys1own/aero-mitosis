@@ -65,7 +65,7 @@ impl SignalSupervisor {
                 alt_stack: Vec::new(),
             };
             supervisor.install();
-            return supervisor;
+            supervisor
         }
 
         #[cfg(not(unix))]
